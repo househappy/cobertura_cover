@@ -5,10 +5,10 @@ defmodule CoberturaCover do
   ]
 
   def start(compile_path, opts) do
-    Mix.shell.info "Cover compiling modules ... "
-    :cover_mod.start()
+    log("Recording test coverage...")
 
-    with compile_path <- to_charlist(compile_path),
+    with _ <- :cover_mod.start(),
+         compile_path <- to_charlist(compile_path),
          results when is_list(results) <- :cover_mod.compile_beam_directory(compile_path),
          html_output <- opts[:html_output]
     do
@@ -19,21 +19,21 @@ defmodule CoberturaCover do
       end
     else
       _ ->
-        Mix.raise "Failed to cover compile directory: #{compile_path}"
+        Mix.raise("[#{inspect __MODULE__}] Failed to cover compile directory: #{compile_path}")
     end
   end
 
   def generate_html(output) do
-    File.mkdir_p!(output)
-    Mix.shell.info "\nGenerating cover HTML output..."
+    log("Generating cover HTML output...")
 
+    File.mkdir_p!(output)
     Enum.each(:cover_mod.modules(), fn mod ->
       {:ok, _} = :cover_mod.analyse_to_file(mod, '#{output}/#{mod}.html', [:html])
     end)
   end
 
   def generate_cobertura do
-    Mix.shell.info "\nGenerating cobertura.xml... "
+    log("Generating Cobertura XML report...")
 
     File.mkdir_p!("cover")
     File.write("cover/coverage.xml", generate_report())
@@ -115,6 +115,10 @@ defmodule CoberturaCover do
       # <line branch="false" hits="21" number="76"/>
       {:line, [branch: false, hits: hits, number: line], []}
     end)
+  end
+
+  defp log(message) do
+    Mix.shell.info("\n[#{inspect __MODULE__}] #{message}")
   end
 
   defp timestamp do
