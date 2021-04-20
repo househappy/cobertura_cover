@@ -6,10 +6,10 @@ defmodule CoberturaCover do
 
   def start(compile_path, opts) do
     Mix.shell.info "Cover compiling modules ... "
-    :cover.start()
+    :cover_mod.start()
 
     with compile_path <- to_charlist(compile_path),
-         results when is_list(results) <- :cover.compile_beam_directory(compile_path),
+         results when is_list(results) <- :cover_mod.compile_beam_directory(compile_path),
          html_output <- opts[:html_output]
     do
       fn ->
@@ -27,15 +27,24 @@ defmodule CoberturaCover do
     File.mkdir_p!(output)
     Mix.shell.info "\nGenerating cover HTML output..."
 
-    Enum.each(:cover.modules(), fn mod ->
-      {:ok, _} = :cover.analyse_to_file(mod, '#{output}/#{mod}.html', [:html])
+    Enum.each(:cover_mod.modules(), fn mod ->
+      {:ok, _} = :cover_mod.analyse_to_file(mod, '#{output}/#{mod}.html', [:html])
     end)
   end
 
   def generate_cobertura do
     Mix.shell.info "\nGenerating cobertura.xml... "
 
-    root = {
+    File.mkdir_p!("cover")
+    File.write("cover/coverage.xml", generate_report())
+  end
+
+  defp generate_report do
+    :xmerl.export_simple(report_root(), :xmerl_xml, prolog: @cobertura_xml_prefix)
+  end
+
+  defp report_root do
+    [{
       :coverage,
       [
         timestamp: timestamp(),
@@ -52,15 +61,12 @@ defmodule CoberturaCover do
         sources: [],
         packages: packages()
       ]
-    }
-    report = :xmerl.export_simple([root], :xmerl_xml, prolog: @cobertura_xml_prefix)
-
-    File.write("coverage.xml", report)
+    }]
   end
 
   defp packages do
     [{:package, [name: "", 'line-rate': 0, 'branch-rate': 0, complexity: 1], [
-      classes: Enum.map(:cover.modules, fn mod ->
+      classes: Enum.map(:cover_mod.modules, fn mod ->
         #
         # Example:
         #
@@ -82,7 +88,7 @@ defmodule CoberturaCover do
   end
 
   defp methods(mod) do
-    {:ok, functions} = :cover.analyse(mod, :calls, :function)
+    {:ok, functions} = :cover_mod.analyse(mod, :calls, :function)
 
     functions
     |> Stream.map(&elem(&1, 0))
@@ -94,11 +100,11 @@ defmodule CoberturaCover do
       #
       {:method, [name: to_string(f), signature: "", 'line-rate': 0, 'branch-rate': 0], []}
     end)
-    |> Enum.to_list
+    |> Enum.to_list()
   end
 
   defp lines(mod) do
-    {:ok, lines} = :cover.analyse(mod, :calls, :line)
+    {:ok, lines} = :cover_mod.analyse(mod, :calls, :line)
 
     lines
     |> Stream.filter(fn {{_m, line}, _hits} -> line != 0 end)
@@ -113,6 +119,7 @@ defmodule CoberturaCover do
 
   defp timestamp do
     {mega, seconds, micro} = :os.timestamp()
+
     mega * 1000000000 + seconds * 1000 + div(micro, 1000)
   end
 end
