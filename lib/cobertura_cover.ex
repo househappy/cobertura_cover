@@ -1,41 +1,43 @@
 defmodule CoberturaCover do
+  @cobertura_xml_prefix [
+    ~s(<?xml version="1.0" encoding="utf-8"?>\n),
+    ~s(<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">\n)
+  ]
+
   def start(compile_path, opts) do
     Mix.shell.info "Cover compiling modules ... "
-    _ = :cover.start
+    :cover.start()
 
-    case :cover.compile_beam_directory(compile_path |> to_char_list) do
-      results when is_list(results) ->
-        :ok
-      {:error, _} ->
-        Mix.raise "Failed to cover compile directory: " <> compile_path
-    end
+    with compile_path <- to_charlist(compile_path),
+         results when is_list(results) <- :cover.compile_beam_directory(compile_path),
+         html_output <- opts[:html_output]
+    do
+      fn ->
+        generate_cobertura()
 
-    html_output = opts[:html_output]
-
-    fn() ->
-      generate_cobertura
-
-      if html_output = opts[:html_output], do: generate_html(html_output)
+        if html_output, do: generate_html(html_output)
+      end
+    else
+      _ ->
+        Mix.raise "Failed to cover compile directory: #{compile_path}"
     end
   end
 
   def generate_html(output) do
     File.mkdir_p!(output)
     Mix.shell.info "\nGenerating cover HTML output..."
-    Enum.each :cover.modules, fn(mod) ->
+
+    Enum.each(:cover.modules(), fn mod ->
       {:ok, _} = :cover.analyse_to_file(mod, '#{output}/#{mod}.html', [:html])
-    end
+    end)
   end
 
   def generate_cobertura do
     Mix.shell.info "\nGenerating cobertura.xml... "
 
-    prolog = [
-      ~s(<?xml version="1.0" encoding="utf-8"?>\n),
-      ~s(<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">\n)
-    ]
-
-    root = {:coverage, [
+    root = {
+      :coverage,
+      [
         timestamp: timestamp(),
         'line-rate': 0,
         'lines-covered': 0,
@@ -45,22 +47,27 @@ defmodule CoberturaCover do
         'branches-valid': 0,
         complexity: 0,
         version: "1.9",
-      ], [
+      ],
+      [
         sources: [],
-        packages: packages,
+        packages: packages()
       ]
     }
-    report = :xmerl.export_simple([root], :xmerl_xml, prolog: prolog)
+    report = :xmerl.export_simple([root], :xmerl_xml, prolog: @cobertura_xml_prefix)
+
     File.write("coverage.xml", report)
   end
 
   defp packages do
     [{:package, [name: "", 'line-rate': 0, 'branch-rate': 0, complexity: 1], [
       classes: Enum.map(:cover.modules, fn mod ->
-        class_name = inspect(mod)
+        #
+        # Example:
+        #
         # <class branch-rate="0.634920634921" complexity="0.0"
         #  filename="PSPDFKit/PSPDFConfiguration.m" line-rate="0.976377952756"
         #  name="PSPDFConfiguration_m">
+        #
 
         {:class,
           [
@@ -79,8 +86,12 @@ defmodule CoberturaCover do
 
     functions
     |> Stream.map(&elem(&1, 0))
-    |> Stream.map(fn {_m, f, a} ->
+    |> Stream.map(fn {_m, f, _a} ->
+      #
+      # Example:
+      #
       # <method name="main" signature="([Ljava/lang/String;)V" line-rate="1.0" branch-rate="1.0">
+      #
       {:method, [name: to_string(f), signature: "", 'line-rate': 0, 'branch-rate': 0], []}
     end)
     |> Enum.to_list
@@ -92,6 +103,9 @@ defmodule CoberturaCover do
     lines
     |> Stream.filter(fn {{_m, line}, _hits} -> line != 0 end)
     |> Enum.map(fn {{_m, line}, hits} ->
+      #
+      # Example:
+      #
       # <line branch="false" hits="21" number="76"/>
       {:line, [branch: false, hits: hits, number: line], []}
     end)

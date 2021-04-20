@@ -8,13 +8,16 @@ defmodule CoberturaCover.Mixfile do
       elixir: "~> 1.0",
       deps: [],
       source_url: "https://github.com/PSPDFKit-labs/cobertura_cover",
-      description: description,
-      package: package,
+      description: description(),
+      package: package()
     ]
   end
 
   def application do
-    [applications: [:logger]]
+    [
+      applications: [:logger],
+      extra_applications: [:tools, :xmerl]
+    ]
   end
 
   defp description do
@@ -25,9 +28,11 @@ defmodule CoberturaCover.Mixfile do
   end
 
   defp package do
-    [contributors: ["Martin Schurrer"],
-     licenses: ["Apache 2.0"],
-     links: %{"GitHub" => "https://github.com/PSPDFKit-labs/cobertura_cover"},
-     files: ["lib", "mix.exs", "README.md"]]
+    [
+      contributors: ["Martin Schurrer"],
+      licenses: ["Apache 2.0"],
+      links: %{"GitHub" => "https://github.com/PSPDFKit-labs/cobertura_cover"},
+      files: ["lib", "mix.exs", "README.md"]
+    ]
   end
 end
