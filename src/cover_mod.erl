@@ -1293,8 +1293,9 @@ remove_myself([],Acc) ->
 
 analyse_info(_Module,[]) ->
     ok;
-analyse_info(Module,Imported) ->
-    imported_info("Analysis",Module,Imported).
+analyse_info(_Module,_Imported) ->
+    %% Do not print that the export includes imported modules
+    ok.
 
 export_info(_Module,[]) ->
     ok;
@@ -1323,17 +1324,6 @@ do_get_all_importfiles([ImportFile|ImportFiles],Acc) ->
     end;
 do_get_all_importfiles([],Acc) ->
     Acc.
-
-imported_info(Text,Module,Imported) ->
-    case lists:keysearch(Module,1,Imported) of
-	{value,{Module,_File,ImportFiles}} ->
-	    io:format("~ts includes data from imported files\n~tp\n",
-		      [Text,ImportFiles]);
-	false ->
-	    ok
-    end.
-
-
 
 add_imported(Module, File, ImportFile, Imported) ->
     add_imported(Module, File, filename:absname(ImportFile), Imported, []).
